@@ -9,6 +9,41 @@ central rate group driver and achieve their rates by dividing the incoming signa
 
 ![Rate Groups](../../img/rate_group.png)
 
+## Scheduling Port Terminology
+
+`Svc.Sched` is a **port type**. It defines a scheduling call with a `U32` context argument. A component declares
+a **port name** for each input or output of that type. For example, the declaration
+`sync input port schedIn: Svc.Sched` gives the input the name `schedIn` and the type `Svc.Sched`.
+
+Components use several names for scheduling inputs:
+
+| Port name | Example component | Input kind |
+| --- | --- | --- |
+| `run` | [`Svc.ComQueue`](../../../Svc/ComQueue/ComQueue.fpp) | Asynchronous |
+| `Run` | [`Svc.Health`](../../../Svc/Health/Health.fpp) | Synchronous |
+| `schedIn` | [`Ref.SignalGen`](../../../TestDeploymentsProject/Ref/SignalGen/SignalGen.fpp) | Synchronous |
+| `SchedIn` | [`Ref.SendBuff`](../../../TestDeploymentsProject/Ref/SendBuffApp/SendBuffApp.fpp) | Synchronous |
+| `Sched` | [`Ref.BlockDriver`](../../../TestDeploymentsProject/Ref/BlockDriver/BlockDriver.fpp) | Asynchronous |
+
+All of these inputs have type `Svc.Sched`. Their names are case-sensitive identifiers chosen by each component;
+the name alone does not determine how the call is handled. A synchronous input executes in the caller's thread,
+while an asynchronous input queues the call for the receiving component's thread. The component's FPP declaration
+specifies the input kind, and its handler defines the work performed on each call.
+
+Rate groups expose `RateGroupMemberOut`, an array of output ports of type `Svc.Sched`. Each connected output calls
+a member component's scheduling input and passes the context value configured for that output. For example, these
+connections from the [Ref topology](../../../TestDeploymentsProject/Ref/Top/topology.fpp) use two different input names:
+
+```fpp
+rateGroup1Comp.RateGroupMemberOut[0] -> SG1.schedIn
+rateGroup2Comp.RateGroupMemberOut[1] -> sendBuffComp.SchedIn
+```
+
+The tick that drives a rate group uses a different port type, `Svc.Cycle`, which carries the cycle start timestamp.
+The clock source calls `RateGroupDriver.CycleIn`; the driver calls its `CycleOut` ports at the configured divided
+rates, and each connected rate group receives the tick on `CycleIn`. The rate group then calls its members through
+`RateGroupMemberOut` using `Svc.Sched`.
+
 ## Rate Group Driver
 
 The `RateGroupDriver` component is the source of the "clock" or tick for the various rate groups. It is usually driven
